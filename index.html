@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Room Rules OCR</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+  <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+</head>
+<body>
+  <h2>Room Rules OCR — GitHub Pages</h2>
+  <p>Загрузите PDF или PNG:</p>
+  <input type="file" id="fileInput" />
+  <canvas id="pdfCanvas" style="display:none; border:1px solid #ccc;"></canvas>
+  <pre id="output">Здесь будет текст...</pre>
+
+  <script>
+    document.getElementById('fileInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const output = document.getElementById('output');
+      output.textContent = 'Распознавание...';
+
+      let imageData;
+
+      if (file.type === 'application/pdf') {
+        const pdfURL = URL.createObjectURL(file);
+        const pdf = await pdfjsLib.getDocument({ url: pdfURL }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.getElementById('pdfCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.display = 'block';
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        imageData = canvas.toDataURL();
+      } else {
+        const reader = new FileReader();
+        imageData = await new Promise(resolve => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const worker = await Tesseract.createWorker({ logger: m => console.log(m) });
+      await worker.loadLanguage('eng+rus');
+      await worker.initialize('eng+rus');
+      const { data } = await worker.recognize(imageData);
+      await worker.terminate();
+
+      output.textContent = data.text;
+    });
+  </script>
+</body>
+</html>
